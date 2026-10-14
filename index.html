@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatlog Generator</title>
+    <!-- Libraries for Exporting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+	@font-face {
+	    font-family: 'CustomFont';
+	    src: url('47211.ttf') format('truetype');
+	    font-weight: normal;
+	    font-style: normal;
+	}
+
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
+
+        :root {
+            --text-color: #6d3f1a;
+            --log-bg: #f9f9f9;
+            --header-base: #7dcb0b;
+            --header-pattern: #66ba02;
+            --event-header-bg: #ff76a4;
+            --close-top: #fbfbfd;
+            --close-bottom: #e6e3ea;
+        }
+
+        body {
+            font-family: 'CustomFont', 'Nunito', sans-serif;
+            background-color: #e5e5e5;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* --- CONTROLS SECTION (LEFT PANEL) --- */
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .controls h2 { margin-top: 0; font-size: 1.2rem; font-weight: 800; }
+        .control-group { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px dashed #eee; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9rem; font-weight: 700; }
+        input[type="text"], input[type="number"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: 'CustomFont', 'Nunito', sans-serif;
+            color: var(--text-color);
+            font-weight: 700;
+        }
+        
+        button {
+            background: var(--header-base);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'CustomFont', 'Nunito', sans-serif;
+            font-weight: 700;
+            transition: 0.2s;
+        }
+        button:hover { filter: brightness(1.1); }
+        .export-btns { display: flex; gap: 10px; margin-top: 10px; }
+        
+        .character-entry { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .character-entry input[type="text"] { flex: 1; }
+        .character-entry input[type="file"] { width: 110px; }
+
+        /* Rich Text Editor Styling */
+        .toolbar { display: flex; gap: 5px; margin-bottom: 5px; background: #eee; padding: 5px; border-radius: 6px; }
+        .toolbar button { background: white; color: var(--text-color); border: 1px solid #ccc; padding: 5px 10px; }
+	.editor {
+            width: 100%; height: 80px; border: 2px solid #ddd; border-radius: 6px;
+            padding: 10px; box-sizing: border-box; overflow-y: auto; background: white;
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.4;
+	.toolbar .color-swatch {
+	    width: 24px;
+	    height: 24px;
+	    border-radius: 4px;
+	    border: 1px solid rgba(0, 0, 0, 0.2);
+	    padding: 0;
+	    cursor: pointer;
+}
+        }
+        .editor b, .editor strong, .editor [style*="font-weight"] {
+            font-weight: 900 !important;
+            font-size: 1.05em;
+        }
+
+        .radio-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; max-height: 120px; overflow-y: auto;}
+
+	.toolbar .color-btn {
+	    width: 24px;
+	    height: 24px;
+	    padding: 0;
+	    border: 1px solid rgba(0, 0, 0, 0.2);
+	    border-radius: 4px;
+	    cursor: pointer;
+	}
+
+        /* --- PREVIEW SECTION (RIGHT PANEL) --- */
+        .preview-wrapper {
+            width: 500px;
+            background: var(--log-bg);
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .log-header {
+            height: 50px;
+            background-color: var(--header-base);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 800;
+            z-index: 1;
+        }
+        
+        .log-header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 60%; height: 100%;
+            background-image: 
+                linear-gradient(45deg, var(--header-pattern) 25%, transparent 25%, transparent 75%, var(--header-pattern) 75%, var(--header-pattern)),
+                linear-gradient(45deg, var(--header-pattern) 25%, transparent 25%, transparent 75%, var(--header-pattern) 75%, var(--header-pattern));
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            opacity: 0.3;
+            -webkit-mask-image: linear-gradient(to right, black 20%, transparent 100%);
+            mask-image: linear-gradient(to right, black 20%, transparent 100%);
+            z-index: -1;
+        }
+
+        .white-card-wrapper {
+            background-color: #ffffff;
+            margin: 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: 500px;
+        }
+
+        .event-header {
+            background-color: var(--event-header-bg);
+            height: 42px;
+            margin: 10px 10px 0 10px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding-left: 75px;
+            padding-right: 15px;
+        }
+        
+        .event-title-text {
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 800;
+            z-index: 1;
+            flex: 1;
+        }
+        
+        .event-image {
+            position: absolute;
+            left: 10px;
+            top: -6px;
+            width: 65px;
+            height: 65px;
+            border-radius: 6px; 
+            object-fit: contain; /* show the whole image, no cropping */
+            background: white;
+            border: 2px solid #f5d382;
+            z-index: 2;
+	    top: 70%;
+	    transform: translateY(-70%);
+        }
+        /* The default EventIcon.png already has its own frame */
+        .event-image.is-default-event {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+        }
+
+        .event-toggle-btn {
+            width: 24px;
+            height: 24px;
+            background-color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            border: 2px solid #5a5a5a;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+
+        .event-toggle-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: var(--text-color);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .chat-body {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .chat-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-body::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-body::-webkit-scrollbar-thumb {
+            background: #d4d4d4;
+            border-radius: 10px;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 10px;
+            position: relative;
+	    align-items: flex-start;
+        }
+        
+        .message-avatar-container {
+            width: 75px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+	    align-items: flex-start
+        }
+        
+        .message-avatar {
+            width: 75px;
+            height: 75px;
+            object-fit: cover;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .message-avatar.is-custom {
+            border-radius: 50%; 
+        }
+        .message-avatar.is-default {
+            border-radius: 10px; 
+        }
+        /* Full, uncropped icon (MsgIcon.png already has its own circle + shadow) */
+        .message-avatar.is-full {
+            object-fit: contain;
+            border: none;
+            box-shadow: none;
+            border-radius: 0;
+        }
+
+        .message-content {
+            display: flex;
+            flex-direction: column;
+	    justify-content: center;
+            width: 350px;
+	    flex-shrink: 0;
+        }
+
+	.message-name {
+            font-size: 1.00rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e8e8e8; /* Adds the dividing line */
+            color: var(--text-color);
+	    flex-shrink: 0; /* Prevents the name block from collapsing or shifting */
+	    justify-content: flex-start;
+        }
+
+        .message-bubble {
+            background: #ffffff;
+            border: 1px solid #e8e8e8;
+            padding: 12px 15px;
+            border-radius: 12px;
+            color: var(--text-color);
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            word-wrap: break-word;
+	    overflow-wrap: break-word;
+            font-size: 1.00rem;
+            font-weight: 700;
+            line-height: 1.4;
+	    width: 100%;
+	    box-sizing: border-box;
+	    min-height: 100px; /* Change this value to your preferred starting height */
+            display: flex;
+            flex-direction: column;
+	    justify-content: flex-start;
+        }
+        
+	/* Inner text wrapper to handle vertical distribution cleanly */
+        .message-inner-text {
+	    margin: auto 0;
+        }
+
+	.message-inner-text span,
+	.message-inner-text font,
+	.message-inner-text div,
+	.message-inner-text p {
+	    display: inline !important;
+	    float: none !important;
+	    margin: 0 !important;
+	    padding: 0 !important;
+	}
+
+        .message-bubble b, 
+        .message-bubble strong, 
+        .message-bubble [style*="font-weight"] {
+            font-weight: 900 !important;
+            font-size: 1.05em;
+        }
+
+        .message-bubble::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: -5px;
+            width: 10px;
+            height: 10px;
+            background: #ffffff;
+            border-left: 1px solid #e8e8e8;
+            border-bottom: 1px solid #e8e8e8;
+            transform: rotate(45deg);
+        }
+
+        .message-row.narration {
+            margin-left: 85px;
+        }
+        .message-row.narration .message-avatar-container,
+        .message-row.narration .message-name {
+            display: none;
+        }
+        .message-row.narration .message-bubble::before {
+            display: none; 
+        }
+
+        .message-actions {
+            position: absolute;
+            right: 0;
+            top: 0;
+            display: none;
+            gap: 5px;
+            background: rgba(255,255,255,0.9);
+            padding: 2px 5px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        .message-row:hover .message-actions {
+            display: flex;
+        }
+        .message-actions button {
+            padding: 2px 5px;
+            font-size: 0.7rem;
+            background: #ddd;
+            color: var(--text-color);
+        }
+
+        .log-footer {
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            background: var(--log-bg);
+            border-top: 1px solid #eaeaea;
+        }
+        .btn-close {
+            background: linear-gradient(to bottom right, var(--close-top), var(--close-bottom));
+            border: 1px solid #c9c7ce;
+            color: var(--text-color);
+            font-size: 1rem;
+            padding: 10px 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-weight: 800;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LEFT PANEL: CONTROLS -->
+    <div class="controls">
+        <h2>Global Settings</h2>
+        <div class="control-group">
+            <label>Event Name</label>
+            <input type="text" id="eventNameInput" value="Fan Letter" oninput="updateEventUI()">
+            <label style="margin-top:10px;">Event Image</label>
+            <input type="file" id="eventImageInput" accept="image/*" onchange="handleEventImage(event)">
+        </div>
+
+        <h2>Characters</h2>
+        <div class="control-group">
+            <div id="characterList"></div>
+            <button onclick="addCharacterField()" style="margin-top:10px; background:#444;">+ Add Chatter</button>
+        </div>
+
+        <h2>Write Message</h2>
+        <div class="control-group">
+            <label>Select Talker:</label>
+            <div class="radio-group" id="talkerRadios"></div>
+
+            <label style="margin-top:10px;">Message Body:</label>
+<div class="toolbar">
+    <button onclick="document.execCommand('bold', false, null)" title="Bold"><b>B</b></button>
+    <button onclick="document.execCommand('italic', false, null)" title="Italic"><i>I</i></button>
+    <input type="color" id="textColor" onchange="document.execCommand('foreColor', false, this.value)" title="Custom Text Color">
+
+    <!-- Preset Color Buttons -->
+    <button class="color-btn" style="background-color: #00bf32;" onmousedown="event.preventDefault()" onclick="document.execCommand('foreColor', false, '#00bf32')" title="Green"></button>
+    <button class="color-btn" style="background-color: #dd688b;" onmousedown="event.preventDefault()" onclick="document.execCommand('foreColor', false, '#dd688b')" title="Pink"></button>
+    <button class="color-btn" style="background-color: #3a79e2;" onmousedown="event.preventDefault()" onclick="document.execCommand('foreColor', false, '#3a79e2')" title="Blue"></button>
+    <button class="color-btn" style="background-color: #ef6d26;" onmousedown="event.preventDefault()" onclick="document.execCommand('foreColor', false, '#ef6d26')" title="Orange"></button>
+
+    <!-- Text Size Dropdown -->
+    <select onchange="document.execCommand('fontSize', false, this.value)" title="Text Size">
+        <option value="">Size</option>
+        <option value="1">Smallest</option>
+        <option value="2">Small</option>
+        <option value="3">Normal</option>
+        <option value="4">Large</option>
+        <option value="5">Larger</option>
+        <option value="6">Huge</option>
+        <option value="7">Maximum</option>
+    </select>
+
+    <!-- Font Family Dropdown -->
+    <select onchange="document.execCommand('fontName', false, this.value)" title="Font">
+        <option value="">Font</option>
+        <option value="CustomFont">CustomFont</option>
+        <option value="Nunito">Nunito</option>
+        <option value="Arial">Arial</option>
+        <option value="Courier New">Courier</option>
+        <option value="Times New Roman">Times</option>
+    </select>
+</div>
+
+            <div class="editor" id="messageEditor" contenteditable="true"></div>
+            
+            <button onclick="submitMessage()" style="margin-top:10px; width: 100%;" id="submitMsgBtn">Send Message</button>
+        </div>
+
+        <h2>Export Options</h2>
+        <div class="export-btns">
+            <button onclick="exportToPNG()">Export PNG</button>
+            <button onclick="exportToPDF()">Export PDF</button>
+<button onclick="exportJSON()" style="background: #2b78e4;">Save Project</button>
+            <button onclick="document.getElementById('importFileInput').click()" style="background: #e4782b;">Load Project</button>
+            <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importJSON(event)">
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: PREVIEW UI -->
+    <div class="preview-wrapper" id="previewContainer">
+        <div class="log-header">Log</div>
+
+        <div class="white-card-wrapper">
+            <div class="event-header">
+                <img id="eventImagePreview" class="event-image is-default-event" src="EventIcon.png" alt="Event">
+                <div class="event-title-text" id="eventTitlePreview">Fan Letter</div>
+                <div class="event-toggle-btn">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M6 9l6 6 6-6" />
+                    </svg>
+                </div>
+            </div>
+
+            <div class="chat-body" id="chatBody"></div>
+        </div>
+
+        <div class="log-footer">
+            <button class="btn-close">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let charCount = 0;
+        let characters = [];
+        let messages = [];
+        let editingMessageId = null;
+	let insertTargetId = null;
+        
+        const DEFAULT_PNG = "default.jpg";
+        const EVENT_DEFAULT_PNG = "EventIcon.png";
+        const CHAR_DEFAULT_ICONS = { "mill wakaba": "MsgIcon.png" };  // lower-case name -> default icon
+        // The 1x1 blank placeholder that older versions used (and older saves contain)
+        // true  = importing a save always swaps in the new default event image / character icons
+        // false = imported saves keep whatever images they contain
+        const FORCE_DEFAULT_IMAGES = true;
+        const OLD_BLANK_EVENT = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
+
+	window.onload = () => {
+ 	   addCharacterField("Mill Wakaba", "MsgIcon.png");
+	    addCharacterField("Selection");
+	    updateTalkerRadios();
+
+	    // Submit message on Enter (Shift+Enter for line breaks)
+	    document.getElementById('messageEditor').addEventListener('keydown', (e) => {
+	        if (e.key === 'Enter' && !e.shiftKey) {
+	            e.preventDefault();
+	            submitMessage();
+	        }
+	    });
+	};
+        function updateEventUI() {
+            document.getElementById('eventTitlePreview').innerText = document.getElementById('eventNameInput').value;
+        }
+
+        function handleEventImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('eventImagePreview');
+                    img.src = e.target.result;
+                    img.classList.remove('is-default-event');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function addCharacterField(defaultName = "", defaultImage = null) {
+            const id = charCount++;
+            const charObj = {
+                id: id,
+                name: defaultName || `Talker ${id + 1}`,
+                image: defaultImage || DEFAULT_PNG,
+                isCustomImg: false,
+                isFullIcon: !!defaultImage   // true = show whole image, no cropping
+            };
+            characters.push(charObj);
+            
+            renderCharacterInputs();
+            updateTalkerRadios();
+        }
+
+        function renderCharacterInputs() {
+            const container = document.getElementById('characterList');
+            container.innerHTML = '';
+            
+            characters.forEach(char => {
+                const div = document.createElement('div');
+                div.className = 'character-entry';
+                div.innerHTML = `
+                    <input type="text" value="${char.name}" oninput="updateCharName(${char.id}, this.value)" placeholder="Name">
+                    <input type="file" accept="image/*" onchange="updateCharImage(${char.id}, this)">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateCharName(id, newName) {
+            const char = characters.find(c => c.id === id);
+            if (char) char.name = newName;
+            updateTalkerRadios();
+            renderMessages();
+        }
+
+        function updateCharImage(id, inputElement) {
+            const file = inputElement.files[0];
+            const char = characters.find(c => c.id === id);
+            if (file && char) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    char.image = e.target.result;
+                    char.isCustomImg = true;
+                    char.isFullIcon = false;
+                    renderMessages();
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function updateTalkerRadios() {
+            const container = document.getElementById('talkerRadios');
+            container.innerHTML = `
+                <label>
+                    <input type="radio" name="talker" value="narration" checked> 
+                    <i>[Narration - No Image/Name]</i>
+                </label>
+            `;
+            
+            characters.forEach(char => {
+                const label = document.createElement('label');
+                label.innerHTML = `
+                    <input type="radio" name="talker" value="${char.id}">
+                    ${char.name}
+                `;
+                container.appendChild(label);
+            });
+        }
+
+function submitMessage() {
+    const editor = document.getElementById('messageEditor');
+    const htmlContent = editor.innerHTML.trim();
+    if (!htmlContent) return;
+
+    const selectedRadio = document.querySelector('input[name="talker"]:checked').value;
+
+    if (editingMessageId !== null) {
+        // --- Edit Mode ---
+        const msg = messages.find(m => m.id === editingMessageId);
+        msg.content = htmlContent;
+        msg.talkerId = selectedRadio;
+        editingMessageId = null;
+        document.getElementById('submitMsgBtn').innerText = "Send Message";
+        
+    } else if (insertTargetId !== null) {
+        // --- Insert Mode (Above Target Message) ---
+        const index = messages.findIndex(m => m.id === insertTargetId);
+        const newMessage = {
+            id: Date.now(),
+            talkerId: selectedRadio,
+            content: htmlContent
+        };
+
+        if (index !== -1) {
+            messages.splice(index, 0, newMessage); // Inserts right before the target
+        } else {
+            messages.push(newMessage);
+        }
+
+        insertTargetId = null;
+        document.getElementById('submitMsgBtn').innerText = "Send Message";
+
+    } else {
+        // --- Normal Append Mode ---
+        messages.push({
+            id: Date.now(),
+            talkerId: selectedRadio,
+            content: htmlContent
+        });
+    }
+
+    editor.innerHTML = '';
+    renderMessages();
+}
+
+        function deleteMessage(id) {
+            messages = messages.filter(m => m.id !== id);
+            renderMessages();
+        }
+
+        function editMessage(id) {
+            const msg = messages.find(m => m.id === id);
+            if (!msg) return;
+
+            document.getElementById('messageEditor').innerHTML = msg.content;
+            
+            const radios = document.getElementsByName('talker');
+            for (let r of radios) {
+                if (r.value == msg.talkerId) r.checked = true;
+            }
+
+            editingMessageId = id;
+            document.getElementById('submitMsgBtn').innerText = "Update Message";
+        }
+
+	function prepareInsert(id) {
+	    insertTargetId = id;
+	    editingMessageId = null; // Clear edit mode if active
+
+	    document.getElementById('messageEditor').focus();
+	    document.getElementById('submitMsgBtn').innerText = "Insert Message Here";
+	}
+
+	function renderMessages() {
+            const container = document.getElementById('chatBody');
+            container.innerHTML = '';
+
+            messages.forEach(msg => {
+                const row = document.createElement('div');
+                row.className = 'message-row';
+                
+                if (msg.talkerId === "narration") {
+                    row.classList.add('narration');
+                    row.innerHTML = `
+                        <div class="message-content" style="max-width: 100%;">
+                            <div class="message-bubble">
+                                <div class="message-inner-text">${msg.content}</div>
+                            </div>
+                        </div>
+                        <div class="message-actions">
+                            <button onclick="editMessage(${msg.id})">Edit</button>
+                            <button onclick="prepareInsert(${msg.id})" style="background: #2b78e4; color: white;">Insert</button>
+                            <button onclick="deleteMessage(${msg.id})">Del</button>
+                        </div>
+                    `;
+                } else {
+                    const char = characters.find(c => c.id == msg.talkerId);
+                    if(!char) return;
+
+                    const imgClass = char.isCustomImg ? "is-custom" : (char.isFullIcon ? "is-full" : "is-default");
+
+                    row.innerHTML = `
+                        <div class="message-avatar-container">
+                            <img class="message-avatar ${imgClass}" src="${char.image}" alt="Avatar">
+                        </div>
+                        <div class="message-content">
+                            <div class="message-bubble">
+                                <div class="message-name">${char.name}</div>
+                                <div class="message-inner-text">${msg.content}</div>
+                            </div>
+                        </div>
+                        <div class="message-actions">
+                            <button onclick="editMessage(${msg.id})">Edit</button>
+                            <button onclick="prepareInsert(${msg.id})" style="background: #2b78e4; color: white;">Insert</button>
+                            <button onclick="deleteMessage(${msg.id})">Del</button>
+                        </div>
+                    `;
+                }
+                container.appendChild(row);
+            });
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function exportToPNG() {
+            const container = document.getElementById('previewContainer');
+            const style = document.createElement('style');
+            style.innerHTML = ".message-actions { display: none !important; }";
+            document.head.appendChild(style);
+
+            const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#f9f9f9' });
+            
+            document.head.removeChild(style);
+
+            const link = document.createElement('a');
+            link.download = 'ChatLog.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+async function exportToPNG() {
+            const container = document.getElementById('previewContainer');
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .message-actions { display: none !important; }
+                .white-card-wrapper { height: auto !important; flex: none !important; }
+                .chat-body { overflow: visible !important; }
+            `;
+            document.head.appendChild(style);
+
+            const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#f9f9f9' });
+            
+            document.head.removeChild(style);
+
+            const link = document.createElement('a');
+            link.download = 'ChatLog.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const container = document.getElementById('previewContainer');
+            
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .message-actions { display: none !important; }
+                .white-card-wrapper { height: auto !important; flex: none !important; }
+                .chat-body { overflow: visible !important; }
+            `;
+            document.head.appendChild(style);
+
+            const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#f9f9f9' });
+            
+            document.head.removeChild(style);
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: "portrait",
+                unit: "px",
+                format: [canvas.width / 2, canvas.height / 2]
+            });
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2);
+            pdf.save('ChatLog.pdf');
+        }
+
+	function exportJSON() {
+            const projectData = {
+                eventName: document.getElementById('eventNameInput').value,
+                eventImage: document.getElementById('eventImagePreview').getAttribute('src'),
+                charCount: charCount,
+                characters: characters,
+                messages: messages
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `${projectData.eventName || 'ChatLog'}_save.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+
+                    // Restore state variables
+                    if (data.eventName !== undefined) {
+                        document.getElementById('eventNameInput').value = data.eventName;
+                        updateEventUI();
+                    }
+                    {
+                        const evImg = document.getElementById('eventImagePreview');
+                        let evSrc = data.eventImage;
+                        // Use the new default if forced, or if the save has no/blank event image
+                        if (FORCE_DEFAULT_IMAGES || !evSrc || evSrc === OLD_BLANK_EVENT) evSrc = EVENT_DEFAULT_PNG;
+                        evImg.src = evSrc;
+                        evImg.classList.toggle('is-default-event', /EventIcon\.png$/.test(evSrc));
+                    }
+                    if (Array.isArray(data.characters)) {
+                        characters = data.characters;
+                        // Old saves: characters still on the old default image get their new default icon
+                        characters.forEach(c => {
+                            const icon = CHAR_DEFAULT_ICONS[(c.name || "").trim().toLowerCase()];
+                            if (icon && (FORCE_DEFAULT_IMAGES || (!c.isCustomImg && (!c.image || c.image === DEFAULT_PNG)))) {
+				c.isCustomImg = false;
+                                c.image = icon;
+                                c.isFullIcon = true;
+                            }
+                        });
+                    }
+                    if (Array.isArray(data.messages)) {
+                        messages = data.messages;
+                    }
+                    if (typeof data.charCount === 'number') {
+                        charCount = data.charCount;
+                    }
+
+                    // Refresh UI components
+                    renderCharacterInputs();
+                    updateTalkerRadios();
+                    renderMessages();
+
+                    // Reset edit state if active
+                    editingMessageId = null;
+                    document.getElementById('submitMsgBtn').innerText = "Send Message";
+                    document.getElementById('messageEditor').innerHTML = '';
+
+                    alert("Project loaded successfully!");
+                } catch (err) {
+                    alert("Invalid JSON save file.");
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+            
+            // Clear input so reloading the same file triggers onchange
+            event.target.value = '';
+        }
+
+    </script>
+</body>
+</html>
