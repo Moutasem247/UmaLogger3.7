@@ -752,18 +752,39 @@ function submitMessage() {
             container.scrollTop = container.scrollHeight;
         }
 
-	function fixObjectFit(clonedDoc) {
-	    clonedDoc.querySelectorAll('img.message-avatar, img.event-image').forEach(img => {
-	        const fit = clonedDoc.defaultView.getComputedStyle(img).objectFit; // "cover" or "contain"
-	        const div = clonedDoc.createElement('div');
-	        div.className = img.className;           // keeps size, border, radius, shadow
-	        div.style.cssText = img.style.cssText;
-	        div.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
-	        div.style.backgroundSize = fit === 'cover' ? 'cover' : 'contain';
-	        div.style.backgroundPosition = 'center';
-	        div.style.backgroundRepeat = 'no-repeat';
-	        img.replaceWith(div);
+	// Pre-render each avatar/icon at export resolution with object-fit applied
+	function prepareFittedImages(scale) {
+	    const imgs = document.querySelectorAll('#previewContainer img.message-avatar, #previewContainer img.event-image');
+	    return Array.from(imgs).map(img => {
+	        if (!img.naturalWidth || !img.clientWidth) return null;
+	        const W = img.clientWidth, H = img.clientHeight;      // CSS box size
+	        const fit = getComputedStyle(img).objectFit;          // "cover" or "contain"
+	        const k = fit === 'cover'
+	            ? Math.max(W / img.naturalWidth, H / img.naturalHeight)
+	            : Math.min(W / img.naturalWidth, H / img.naturalHeight);
+	        const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+
+	        const c = document.createElement('canvas');
+	        c.width = Math.round(W * scale);
+	        c.height = Math.round(H * scale);
+	        const ctx = c.getContext('2d');
+	        ctx.imageSmoothingQuality = 'high';
+	        ctx.drawImage(img, (W - dw) / 2 * scale, (H - dh) / 2 * scale, dw * scale, dh * scale);
+	        try { return c.toDataURL('image/png'); } catch (e) { return null; }
 	    });
+	}
+
+	// Swap the cloned <img> tags for ones that use the pre-rendered bitmaps
+	function applyFittedImages(clonedDoc, fitted) {
+	    clonedDoc.querySelectorAll('#previewContainer img.message-avatar, #previewContainer img.event-image')
+	        .forEach((img, i) => {
+	            if (!fitted[i]) return;
+	            const fresh = clonedDoc.createElement('img');
+	            fresh.className = img.className;            // keeps size, border, radius, shadow
+	            fresh.style.cssText = img.style.cssText;
+	            fresh.src = fitted[i];
+	            img.replaceWith(fresh);
+	        });
 	}
 
 	async function exportToPNG() {
@@ -776,12 +797,16 @@ function submitMessage() {
             `;
             document.head.appendChild(style);
 
-	const canvas = await html2canvas(container, {
-	    scale: 2,
-	    useCORS: true,
-	    backgroundColor: '#f9f9f9',
-	    onclone: fixObjectFit
-	});            
+		const canvas = await html2canvas(container, {
+		const SCALE = 2;
+		const fitted = prepareFittedImages(SCALE);
+		const canvas = await html2canvas(container, {
+		    scale: SCALE,
+		    useCORS: true,
+		    backgroundColor: '#f9f9f9',
+		    onclone: doc => applyFittedImages(doc, fitted)
+		});          
+  
             document.head.removeChild(style);
 
             const link = document.createElement('a');
@@ -803,11 +828,14 @@ function submitMessage() {
             document.head.appendChild(style);
 
 	const canvas = await html2canvas(container, {
-	    scale: 2,
-	    useCORS: true,
-	    backgroundColor: '#f9f9f9',
-	    onclone: fixObjectFit
-	});            
+		const SCALE = 2;
+		const fitted = prepareFittedImages(SCALE);
+		const canvas = await html2canvas(container, {
+		    scale: SCALE,
+		    useCORS: true,
+		    backgroundColor: '#f9f9f9',
+		    onclone: doc => applyFittedImages(doc, fitted)
+		});            
             document.head.removeChild(style);
 
             const imgData = canvas.toDataURL('image/png');
