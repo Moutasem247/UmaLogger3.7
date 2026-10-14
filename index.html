@@ -833,7 +833,8 @@ function submitMessage() {
 		    useCORS: true,
 		    backgroundColor: '#f9f9f9',
 		    onclone: doc => applyFittedImages(doc, fitted)
-		});            
+		}); 
+           
             document.head.removeChild(style);
 
             const imgData = canvas.toDataURL('image/png');
