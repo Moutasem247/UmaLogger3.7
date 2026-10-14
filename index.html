@@ -752,23 +752,21 @@ function submitMessage() {
             container.scrollTop = container.scrollHeight;
         }
 
-        async function exportToPNG() {
-            const container = document.getElementById('previewContainer');
-            const style = document.createElement('style');
-            style.innerHTML = ".message-actions { display: none !important; }";
-            document.head.appendChild(style);
+	function fixObjectFit(clonedDoc) {
+	    clonedDoc.querySelectorAll('img.message-avatar, img.event-image').forEach(img => {
+	        const fit = clonedDoc.defaultView.getComputedStyle(img).objectFit; // "cover" or "contain"
+	        const div = clonedDoc.createElement('div');
+	        div.className = img.className;           // keeps size, border, radius, shadow
+	        div.style.cssText = img.style.cssText;
+	        div.style.backgroundImage = `url("${img.currentSrc || img.src}")`;
+	        div.style.backgroundSize = fit === 'cover' ? 'cover' : 'contain';
+	        div.style.backgroundPosition = 'center';
+	        div.style.backgroundRepeat = 'no-repeat';
+	        img.replaceWith(div);
+	    });
+	}
 
-            const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#f9f9f9' });
-            
-            document.head.removeChild(style);
-
-            const link = document.createElement('a');
-            link.download = 'ChatLog.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        }
-
-async function exportToPNG() {
+	async function exportToPNG() {
             const container = document.getElementById('previewContainer');
             const style = document.createElement('style');
             style.innerHTML = `
@@ -778,8 +776,12 @@ async function exportToPNG() {
             `;
             document.head.appendChild(style);
 
-            const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#f9f9f9' });
-            
+	const canvas = await html2canvas(container, {
+	    scale: 2,
+	    useCORS: true,
+	    backgroundColor: '#f9f9f9',
+	    onclone: fixObjectFit
+	});            
             document.head.removeChild(style);
 
             const link = document.createElement('a');
@@ -800,8 +802,12 @@ async function exportToPNG() {
             `;
             document.head.appendChild(style);
 
-            const canvas = await html2canvas(container, { scale: 2, useCORS: true, backgroundColor: '#f9f9f9' });
-            
+	const canvas = await html2canvas(container, {
+	    scale: 2,
+	    useCORS: true,
+	    backgroundColor: '#f9f9f9',
+	    onclone: fixObjectFit
+	});            
             document.head.removeChild(style);
 
             const imgData = canvas.toDataURL('image/png');
